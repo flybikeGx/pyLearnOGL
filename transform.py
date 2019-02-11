@@ -1,10 +1,12 @@
-from PIL import Image
+import math
 
 import moderngl
 import numpy
+import numpy.matlib
 import glfw
+import mat
 
-width = 800
+width = 600
 height = 600
 
 
@@ -43,21 +45,11 @@ def main():
     glfw.set_window_size_callback(window, resize_callback)
     ctx = moderngl.create_context(require=410)
 
-    img = Image.open('./res/container.jpg')
-    texture = ctx.texture(img.size, 3, img.tobytes())
-    texture.use(0)  # bind texture
-
-    img2 = Image.open('./res/awesome.png')
-    img2 = img2.transpose(Image.FLIP_TOP_BOTTOM)
-    texture2 = ctx.texture(img2.size, 4, img2.tobytes())
-    texture2.use(1)
-
     # 顶点数组
     vertices = numpy.array([
-        0.5, 0.5, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0,
-        0.5, -0.5, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0,
-        - 0.5, -0.5, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
-        - 0.5, 0.5, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0
+        0, 0, 0.0,
+        0.5, -0.5, 0.0,
+        0.0, 0.5, 0.0
     ], dtype='f4')
 
     # 建立vbo
@@ -65,28 +57,26 @@ def main():
 
     # 顶点index
     indice = numpy.array([
-        0, 1, 3,
-        1, 2, 3
+        0, 1, 2
     ], dtype='u4')
     ebo = ctx.buffer(indice.tobytes())
 
     # 读取shader
-    f = open('shaders/texture.vert')
+    f = open('shaders/transform.vert')
     vert = f.read()
     f.close()
 
-    f = open('shaders/texture.frag')
+    f = open('shaders/orange.frag')
     frag = f.read()
     f.close()
 
     # 编译shader
     program = ctx.program(vertex_shader=vert, fragment_shader=frag)
 
-    program['ourTexture'].write(numpy.array([0], 'i4').tobytes())
-    program['texture2'].write(numpy.array([1], 'i4').tobytes())
+    angle = 0
 
     # 建立vao
-    vao = ctx.simple_vertex_array(program, vbo, 'aPos', 'aColor', 'aTexCoord', index_buffer=ebo)
+    vao = ctx.simple_vertex_array(program, vbo, 'aPos', index_buffer=ebo)
 
     # 主循环
     while not glfw.window_should_close(window):
@@ -95,9 +85,14 @@ def main():
         ctx.viewport = (0, 0, width, height)  # 这个就是glViewport()，设置opengl的窗口大小，不设置其实也无所谓
         ctx.clear(0.2, 0.3, 0.3, 1.0)
 
-        vao.render()
-        glfw.poll_events()
+        angle += math.pi / 180
 
+        trans = mat.rotate(angle, 0, 0, 1)
+        program['transform'].write(trans.tobytes())
+
+        vao.render()
+
+        glfw.poll_events()
         glfw.swap_buffers(window)
 
     glfw.terminate()
